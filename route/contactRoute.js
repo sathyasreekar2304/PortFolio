@@ -1,22 +1,13 @@
+require("dotenv").config();
 const router = require('express').Router();
 const nodemailer = require('nodemailer');
-
-
-
-// nodemailer is a module created in  node.js and has benn created in order to send mails
-
-// in order to send mails you have to follow 3 steps:
-// 1.Create nodemailer transporter
-// --the most common is SMTP
-// --SENDMAIL is a command for simple message. like mail() in php
-
-// 2. Set nodemailer message options(mailOptions)
-// we specify the sender,messages
-
-// 3.deliver a message with sendmail
+const {google}=require('googleapis')
 
 
 router.post('/contact', (req, res)=>{
+const oAuth2Client=new google.auth.OAuth2(process.env.CLIENT_ID,process.env.CLIENT_SECRET,process.env.REDIRECT_URI,process.env.REFRESH_TOKEN);
+oAuth2Client.setCredentials({refresh_token:process.env.REFRESH_TOKEN});
+
     let data = req.body;
 
     // if the fields are empty we want to appear a message
@@ -25,30 +16,29 @@ router.post('/contact', (req, res)=>{
      return res.json({msg:"Please fill all the fields"})
 
     }
-
-
+    const accessToken=oAuth2Client.getAccessToken().then((token)=>{
+        return token;
+    });
+   
 //   we create a transporter
-let smtpTransport = nodemailer.createTransport({
-
-    service:'Gmail',
-    // the connect port
-    port:465,
-
-    // authenticate
+const transport = nodemailer.createTransport({
+    service:'gmail',
     auth:{
-        user:'sathya.dinavahi@gmail.com',
-        pass:'5athya5reekar23'
+        type:"OAuth2",
+        user:process.env.mail_id,
+        clientId: process.env.CLIENT_ID,
+        clientSecret:process.env.CLIENT_SECRET,
+        refreshToken:process.env.REFRESH_TOKEN,
+        accessToken:accessToken
     }
-})
+}
+  );
 
-
-// define the mailoptions
 let mailOptions = {
     from:data.email,
-    to:'sathya.dinavahi@gmail.com',
+    to:`sathya.dinavahi@gmail.com`,
     subject:`Message from ${data.name}`,
     html:`
-    
     <h3>Informations</h3>
     <ul>
     <li>Name: ${data.name}</li>
@@ -57,18 +47,15 @@ let mailOptions = {
     </ul>
     <h3>Message</h3>
     <p>${data.message}</p>
-    
-    
     `
 }
 
-
-// 3.send the message with sendmail
-smtpTransport.sendMail(mailOptions, (err)=>{
+// send the message with sendmail
+transport.sendMail(mailOptions, (err)=>{
 
 try {
 
-if(err) return res.status(400).json({msg:'Please fill all the fields'})
+if(err) return res.status(400).json({msg:err})
 
 res.status(200).json({msg:'Thank you for contacting Sathya Sreekar!'})
 
